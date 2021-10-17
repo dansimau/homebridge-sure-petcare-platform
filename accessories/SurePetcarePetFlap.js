@@ -28,7 +28,7 @@ function SurePetcarePetFlap(log, accessory, device, session, config) {
     this.battery
         .getCharacteristic(global.Characteristic.BatteryLevel)
         .on('get', this._getBatteryLevel.bind(this));
-    
+
     this.battery
         .getCharacteristic(global.Characteristic.ChargingState)
         .on('get', this._getBatteryChargeState.bind(this));
@@ -71,7 +71,7 @@ SurePetcarePetFlap.prototype._getLockState = function(callback) {
 
 SurePetcarePetFlap.prototype._setLockState = function(targetState, callback, context) {
     if (context == "internal") return callback(null); // we set this state ourself, no need to react to it
-    
+
     var self = this;
 
     //If we override locking mode in config, use that.
@@ -79,12 +79,23 @@ SurePetcarePetFlap.prototype._setLockState = function(targetState, callback, con
     if(targetState !== 0) {
         lock_mode = this.config.lock_mode ? this.config.lock_mode : targetState;
     }
-    
+
+    let callbackFired = false;
+    const timeout = setTimeout(() => {
+        this.log.info("Timeout; confirming lock state change anyway")
+        callbackFired = true;
+        callback(null);
+    }, 8000);
+
     this.session.setLock(this.lock.id, lock_mode, function(data) {
         self.service
           .getCharacteristic(Characteristic.LockCurrentState)
           .setValue(targetState, null, "internal");
-        callback(null);
+        clearTimeout(timeout);
+        if (!callbackFired) {
+            callback(null);
+            this.log.info("Confirmed lock state change")
+        }
     });
 }
 
